@@ -21,18 +21,26 @@
 <div style="width:50%;float:left;">
 <?php
 include('includes/init_sql.php');
+include "functions.php";
 //zemākās
 
 $balsiojumi1 = mysqli_query($connection, "SELECT img, album, albumID, votes, (votes/views) rating FROM ratings where (votes/views) > 0 ORDER BY votes DESC LIMIT 0 , 10");
 while($r1=mysqli_fetch_array($balsiojumi1)){
-	$url=$r1["img"];
-	$balsis=$r1["rating"];
-	$albumID=$r1["album"];
-	$album_ID=$r1["albumID"];
-	$votes=$r1["votes"];
+	$url 		= $r1["img"];
+	$balsis 	= $r1["rating"];
+	$albumID 	= $r1["album"];
+	$album_ID 	= $r1["albumID"];
+	$votes 		= $r1["votes"];
+	
+	if(substr($url, 0, 4) !== "http"){
+		$url = getImage($url, $accessToken);
+	}else{
+		$url = preg_replace("~\/(?!.*\/)~", "/s2048/", $url);
+	}
+	
 	echo '<div style="display:bolck;">
 	<a target="_blank" href="http://lielakeda.lv/albums/?cws_album='.$album_ID.'&cws_album_title='.$albumID.'">
-	<img style="float:left;width:95%;border-radius:25px;" src="'.preg_replace("~\/(?!.*\/)~", "/s2048/", $url).'"/></a><br/>';
+	<img style="float:left;width:95%;border-radius:25px;" src="'.$url.'"/></a><br/>';
 	echo '<span style="padding:15px;color:white;">Reitings: '.round($balsis, 2).' ('.$votes.' balsis)</span></div>';
 }
 
@@ -43,14 +51,21 @@ while($r1=mysqli_fetch_array($balsiojumi1)){
 
 $balsiojumi1 = mysqli_query($connection, "SELECT img, album, albumID, votes, (votes/views) rating FROM ratings where (votes/views) > 0 and votes>1 ORDER BY rating DESC, votes DESC LIMIT 0 , 10");
 while($r1=mysqli_fetch_array($balsiojumi1)){
-	$url=$r1["img"];
-	$balsis=$r1["rating"];
-	$albumID=$r1["album"];
-	$album_ID=$r1["albumID"];
-	$votes=$r1["votes"];
+	$url 		= $r1["img"];
+	$balsis 	= $r1["rating"];
+	$albumID 	= $r1["album"];
+	$album_ID 	= $r1["albumID"];
+	$votes 		= $r1["votes"];
+	
+	if(substr($url, 0, 4) !== "http"){
+		$url = getImage($url, $accessToken);
+	}else{
+		$url = preg_replace("~\/(?!.*\/)~", "/s2048/", $url);
+	}
+	
 	echo '<div style="display:bolck;">
 	<a target="_blank" href="http://lielakeda.lv/albums/?cws_album='.$album_ID.'&cws_album_title='.$albumID.'">
-	<img style="float:right;width:95%;border-radius:25px;" src="'.preg_replace("~\/(?!.*\/)~", "/s2048/", $url).'"/></a><br/>';
+	<img style="float:right;width:95%;border-radius:25px;" src="'.$url.'"/></a><br/>';
 	echo '<span style="padding:15px;color:black;">Reitings: '.round($balsis, 2).' ('.$votes.' balsis)</span></div>';
 }
 ?>

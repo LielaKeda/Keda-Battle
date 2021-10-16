@@ -5,63 +5,18 @@ header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
 include('includes/init_sql.php');
-
-//TO-DO: Iznest šo bloku ārpusē, jo to nākas bieži izmantot atkārtoti
-require_once 'get/vendor/autoload.php';
-
-$client = new Google_Client();
-$client->setAuthConfig('get/client_credentials.json');
-$client->setAccessType ("offline");
-$client->setApprovalPrompt ("force");
-$client->setIncludeGrantedScopes(true);
-$client->addScope("https://www.googleapis.com/auth/photoslibrary.readonly");
-
-$accessFile = 'get/accessToken.json';
-$refreshFile = 'get/refreshToken.json';
-
-if (file_exists($accessFile)) {
-	$accessToken = json_decode(file_get_contents($accessFile), true);
-	if(isset($accessToken["access_token"]))
-		$accessToken = $accessToken["access_token"];
-	// echo $accessToken;
-	$client->setAccessToken($accessToken);
-}
-if ($client->isAccessTokenExpired() && file_exists($refreshFile)) {
-	$refreshToken = json_decode(file_get_contents($refreshFile), true);
-	$client->fetchAccessTokenWithRefreshToken($refreshToken);
-	
-	file_put_contents($accessFile, json_encode($client->getAccessToken()));
-	file_put_contents($refreshFile, json_encode($client->getRefreshToken()));
-}else{
-	$authUrl = $client->createAuthUrl();
-	echo $authUrl, "\n";
-	// $code = rtrim(fgets(STDIN));
-	$client->authenticate($code);
-	
-	file_put_contents($accessFile, json_encode($client->getAccessToken()));
-	file_put_contents($refreshFile, json_encode($client->getRefreshToken()));
-}
+include "functions.php";
 
 if(isset($_GET['id']) && isset($_GET['skatita'])){
 	$bildesID = $_GET['id'];
 	$skatita = $_GET['skatita'];
-	//dabū bildi, par kuru balsots
-	$balsiojumi1 = mysqli_query($connection, "SELECT * FROM ratings where img LIKE '%$bildesID%'");
-	$r1=mysqli_fetch_array($balsiojumi1);
-	//palielina bildes balsis un skatījumus
-	$b_balsis=$r1["votes"];
-	$b_skatijumi=$r1["views"];
-		$b_balsis++;
-		$b_skatijumi++;
-		$result = mysqli_query($connection, "update ratings set votes = '$b_balsis',  views = '$b_skatijumi' where img LIKE '%$bildesID%'");
-	//dabū otru bildi
-	$balsiojumi1 = mysqli_query($connection, "SELECT * FROM ratings where img LIKE '%$skatita%'");
-	$r1=mysqli_fetch_array($balsiojumi1);
-	//palielina bildes skatījumus
-	$s_skatijumi=$r1["views"];
-		$s_skatijumi++;
-		$result = mysqli_query($connection, "update ratings set views = '$s_skatijumi' where img LIKE '%$skatita%'");
-		header('Location: ?');
+	
+	//bilde, par kuru balsots	
+	$result = mysqli_query($connection, "update ratings set votes = IFNULL(votes, 0) + 1,  views = IFNULL(views, 0) + 1 where Id = $bildesID");
+	
+	//otra bilde
+	$result = mysqli_query($connection, "update ratings set views = IFNULL(views, 0) + 1 where Id = $skatita");
+	header('Location: ?');
 }
 ?>
 <!DOCTYPE html>
@@ -75,216 +30,238 @@ if(isset($_GET['id']) && isset($_GET['skatita'])){
     <link rel="shortcut icon" href="../favicon.ico" type="image/x-icon" />
     <link rel="stylesheet" type="text/css" href="includes/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+	<style>
+	/* Pen-specific styles */
+	html, body, section {
+	  height: 100%;
+	}
+
+	body {
+	  text-align: center;
+	}
+
+	div {
+	  display: flex;
+	  flex-direction: column;
+	  justify-content: center;
+	}
+
+	/* Pattern styles */
+	.container {
+	  display: flex;
+	}
+
+	.left-half {
+	  flex: 1;
+	  padding: 1rem;
+	}
+
+	.right-half {
+	  flex: 1;
+	  padding: 1rem;
+	}
+	img.a {
+		max-height:85vh;
+		max-width:46vw;
+		overflow: hidden;
+	}
+	img.b {
+		max-height:85vh;
+		max-width:46vw;
+		overflow: hidden;
+	}
+	</style>
 </head>
-<body style='margin: 0px; height: 100%;'>
-<div style='position: fixed; top: 0; left: 0; width: 50%; height: 400%; background-color: black; z-index: 1;'></div>
-<div style='position: absolute; top: 0; left: 0; z-index: 2; width: 100%;'>
-<br/>
-<h2 style="margin:auto auto;text-align:center;padding:5px;background-color:lightgrey;border-radius:15px;width:250px;opacity:0.7">Kura bilde labāka?</h2>
-<div class="gallery" style="margin:auto auto; width:100%;height:100%;">
-<?php
-$query = mysqli_query($connection, "select * from ratings ORDER BY RAND() LIMIT 2");
+<body>
+	<div style='position: fixed; top: 0; left: 0; width: 50%; height: 400%; background-color: black; z-index: 1;'></div>
+	<div style='position: absolute; top: 0; left: 0; z-index: 2; width: 100%;'>
+	<br/>
+	<h2 style="margin:auto auto;margin-top:5px;text-align:center;padding:5px;background-color:lightgrey;border-radius:15px;width:250px;opacity:0.7">Kura bilde labāka?</h2>
+	<div class="gallery" style="margin:auto auto; width:100%;height:100%;">
+	<section class="container">
+	<?php
+	$query = mysqli_query($connection, "select * from ratings ORDER BY RAND() LIMIT 2");
+	while($rez = mysqli_fetch_array($query)){
+		$img["Id"]      	= $rez["Id"];
+		$img["img"]     	= $rez["img"];
+		$img["votes"]		= $rez["votes"];
+		$img["views"]		= $rez["views"];
+		$img["album"]		= $rez["album"];
+		$img["albumID"] 	= $rez["albumID"];
+		$img["model"]		= $rez["model"];
+		$img["iso"]			= $rez["iso"];
+		$img["fstop"]		= $rez["fstop"];
+		$img["exposure"]	= $rez["exposure"];
+		$img["focallength"] = $rez["focallength"];
+		$img["year"]		= $rez["year"];
+		$img["month"]		= $rez["month"];
+		$img["day"]			= $rez["day"];
+		$images[] = $img;
 
-$rezultats1     = mysqli_fetch_array($query);
-$random_pic     = $rezultats1["img"];
-$rate1          = $rezultats1["votes"];
-$skatijumi      = $rezultats1["views"];
-$album_title    = $rezultats1["album"];
-$album_id	    = $rezultats1["albumID"];
-$model          = $rezultats1['model'];
-$iso            = $rezultats1['iso'];
-$fstop          = $rezultats1['fstop'];
-$exposure       = $rezultats1['exposure'];
-$focallength    = $rezultats1['focallength'];
-$year           = $rezultats1['year'];
-$month          = $rezultats1['month'];
-$weekday        = $rezultats1['day'];
-$queryX         = mysqli_query($connection, "select distinct tag from tags where img like '%$random_pic%'");
-while($rx = mysqli_fetch_array($queryX)){
-    $tags[] = $rx["tag"];
-}
-if (sizeof($tags)<1)$tags[0]="nav";
-    
-$rezultats2     = mysqli_fetch_array($query);
-$arandom_pic    = $rezultats2["img"];
-$rate2          = $rezultats2["votes"];
-$skatijumi2     = $rezultats2["views"];
-$aalbum_title   = $rezultats2["album"];
-$aalbum_id	    = $rezultats2["albumID"];
-$amodel         = $rezultats2['model'];
-$aiso           = $rezultats2['iso'];
-$afstop         = $rezultats2['fstop'];
-$aexposure      = $rezultats2['exposure'];
-$afocallength   = $rezultats2['focallength'];
-$ayear          = $rezultats2['year'];
-$amonth         = $rezultats2['month'];
-$aweekday       = $rezultats2['day'];
-$queryXX        = mysqli_query($connection, "select distinct tag from tags where img like '%$arandom_pic%'");
-while($rxx = mysqli_fetch_array($queryXX)){
-    $tags1[] = $rxx["tag"];
-}
-if (sizeof($tags1)<1)$tags1[0]="nav";
-
-//izskaitļo bildes ID
-$bb = explode("/", $random_pic);
-$bb2 = explode("/", $arandom_pic);
-if(strcmp($bb[0],"http:")==0||strcmp($bb[0],"https:")==0){$bildesID = "";}else{$bildesID = "http://";}
-if(strcmp($bb2[0],"http:")==0||strcmp($bb2[0],"https:")==0){$bildesID2 = "";}else{$bildesID2 = "http://";}
-
-for ($i=0; $i<sizeof($bb)-1; $i++){$bildesID.=$bb[$i]."/";}
-for ($i=0; $i<sizeof($bb2)-1; $i++){$bildesID2.=$bb2[$i]."/";}
-
-//dabū lielās bildes
-$aa = explode("/", $bildesID);
-$aa2 = explode("/", $bildesID2);
-for ($i=0; $i<sizeof($aa)-1; $i++){$aaa1.=$aa[$i]."/";if($i==sizeof($aa)-2){$aaa1.="s2000/";};}
-for ($i=0; $i<sizeof($aa2)-1; $i++){$aaa2.=$aa2[$i]."/";if($i==sizeof($aa2)-2){$aaa2.="s2000/";};}
-
-//Pirmā bilde
-if(substr($arandom_pic, 0, 4) == "http"){
-    //Jāpārbauda arī otra (lai pareizi skaitītu...)
-    if(substr($random_pic, 0, 4) !== "http"){
-        $bildesID = $random_pic;
-    }
-    //TO-DO: Pārbaudīt, vai arī ar tastarūras pogām lietas strādā...
-    echo "<a href='?id=".$arandom_pic."&skatita=".$bildesID."'><img style='max-height:85%;max-width:46%;overflow: hidden;float:left;' src='".$aaa2."' ></a>";
-}else{    
-    if(substr($random_pic, 0, 4) !== "http"){
-        $bildesID = $random_pic;
-    }
-    echo "<a href='?id=".$arandom_pic."&skatita=".$bildesID."'><img style='max-height:85%;max-width:46%;overflow: hidden;float:left;' onload='(function(){var imgElement = this; var jsonURL=\"https://photoslibrary.googleapis.com/v1/mediaItems/".$arandom_pic."?access_token=".$accessToken."\"; $.getJSON(jsonURL, function(data) { var imgURL = data.baseUrl+\"=w2000\"; imgElement.src=imgURL; }); }).call(this)' src='includes/bigLoader.gif'/></a>";
-}
-
-
-//Otrā bilde
-if(substr($random_pic, 0, 4) == "http"){
-    //Jāpārbauda arī otra (lai pareizi skaitītu...)
-    if(substr($arandom_pic, 0, 4) !== "http"){
-        $bildesID = $arandom_pic;
-    }
-    echo "<a href='?id=".$random_pic."&skatita=".$bildesID."'><img style='max-height:85%;max-width:46%;overflow: hidden;float:right;' src='".$aaa1."' ></a><br style='clear:both;'/>";
-}else{
-    if(substr($arandom_pic, 0, 4) !== "http"){
-        $bildesID = $arandom_pic;
-    }
-    echo "<a href='?id=".$random_pic."&skatita=".$bildesID."'><img style='max-height:85%;max-width:46%;overflow: hidden;float:right;' onload='(function(){var imgElement = this; var jsonURL=\"https://photoslibrary.googleapis.com/v1/mediaItems/".$random_pic."?access_token=".$accessToken."\"; $.getJSON(jsonURL, function(data) { var imgURL = data.baseUrl+\"=w2000\"; imgElement.src=imgURL; }); }).call(this)' src='includes/bigLoader.gif'/></a><br style='clear:both;'/>";
-}
-
-	echo "<div style='float:right;width:40%;padding:15px;color:black;border:1px lightgrey solid;border-radius:15px;margin:15px;'>";
-	// echo 'Saite uz bildi:<br/>';
-	// echo '<input type="text" size="60" value="'.$aaa1.'"  readonly="readonly" /><br/><br/>';
-	echo "<b>Par bildi:</b><br/>";
-	if($skatijumi>0){echo "Reitings: ".$rate1/$skatijumi."<br/>";}else{echo "Reitings: vēl nav<br/>";}
-	echo "Balsis: ".$rate1."<br/>";
-	if($skatijumi>0){echo "Skatīta: ".$skatijumi." reizes<br/>";}else{echo "Skatīta: nav<br/>";}
-	if($tags[0]!="nav")echo "Atslēgvārdi: ";foreach($tags as $tag)if($tag!="nav")echo "<a style='text-decoration:none;color:black;font-weight:bold;' href='vards.php?v=".$tag."'>".$tag."</a>";if($tags[0]!="nav")echo"<br/>";
-	echo "Albums: <a style='color:black;font-weight:bold;' target='_blank' href='http://lielakeda.lv/albums/?cws_album=".$album_id."&cws_album_title=".$album_title."'>".$album_title."</a><br/><br/>";
-	echo "Uzņemts ar: ".$model."<br/>";
-	echo "ISO: ".$iso."<br/>";
-	echo "Diafragmas atvērums: F".$fstop."<br/>";
-	if($exposure<1&&$exposure!=0&&$exposure!=""&&isset($exposure)) {$shspd="1/".(round(1/$exposure));} else {$shspd=$exposure;}
-	echo "Ekspozīcija: ".$shspd."s<br/>";
-	echo "fokusa attālums: ".$focallength."mm<br/>";
-	echo "Gads: ".$year."<br/>";
-	switch ($month) {
-		case 1: $menesis = "janvāris"; break;
-		case 2: $menesis = "februāris"; break;
-		case 3: $menesis = "marts"; break;
-		case 4: $menesis = "aprīlis"; break;
-		case 5: $menesis = "maijs"; break;
-		case 6: $menesis = "jūnijs"; break;
-		case 7: $menesis = "jūlijs"; break;
-		case 8: $menesis = "augusts"; break;
-		case 9: $menesis = "septembris"; break;
-		case 10: $menesis = "oktobris"; break;
-		case 11: $menesis = "novembris"; break;
-		case 12: $menesis = "decembris"; break;
+		$imgId = $img["Id"];
+		$queryX = mysqli_query($connection, "select distinct tag from tags where img_id = $imgId");
+		$tag = [];
+		while($rx = mysqli_fetch_array($queryX)){
+			$tag[] = $rx["tag"];
+		}
+		if (sizeof($tag)<1) $tag[0] = "nav";
+		$tags[] = $tag;
 	}
-	echo "Mēnesis: ".$menesis."<br/>";
-	switch ($weekday) {
-		case 1: $diena = "pirmdiena"; break;
-		case 2: $diena = "otrdiena"; break;
-		case 3: $diena = "trešdiena"; break;
-		case 4: $diena = "ceturtdiena"; break;
-		case 5: $diena = "piektdiena"; break;
-		case 6: $diena = "sestdiena"; break;
-		case 7: $diena = "svētdiena"; break;
-	}
-	echo "Diena: ".$diena."<br/>";
-	echo "</div>";
 
-	echo "<div style='float:left;width:40%;padding:15px;color:white;border:1px lightgrey solid;border-radius:15px;margin:15px;'>";
-	// echo 'Saite uz bildi:<br/>';
-	// echo '<input type="text" size="60" value="'.$aaa2.'"  readonly="readonly" /><br/><br/>';
-	echo "<b>Par bildi:</b><br/>";
-	if($skatijumi2>0){echo "Reitings: ".$rate2/$skatijumi2."<br/>";}else{echo "Reitings: vēl nav<br/>";}
-	echo "Balsis: ".$rate2."<br/>";
-	if($skatijumi2>0){echo "Skatīta: ".$skatijumi2." reizes<br/>";}else{echo "Skatīta: nav<br/>";}
-	if($tags1[0]!="nav")echo "Atslēgvārdi: ";foreach($tags1 as $tag)if($tag!="nav")echo "<a style='text-decoration:none;color:white;font-weight:bold;' href='vards.php?v=".$tag."'>".$tag."</a>";if($tags1[0]!="nav")echo"<br/>";
-	echo "Albums: <a style='color:white;font-weight:bold;' target='_blank' href='http://lielakeda.lv/albums/?cws_album=".$aalbum_id."&cws_album_title=".$aalbum_title."'>".$aalbum_title."</a><br/><br/>";
-	echo "Uzņemts ar: ".$amodel."<br/>";
-	echo "ISO: ".$aiso."<br/>";
-	echo "Diafragmas atvērums: F".$afstop."<br/>";
-	if(isset($exposure) && isset($aexposure) && $exposure != "" && $aexposure < 1 && $exposure != 0 && $aexposure != 0) {
-        $ashspd = "1/".(round(1 / $aexposure));
-    } else {
-        $ashspd = $aexposure;
-    }
+	//izskaitļo bildes ID
+	$bb = explode("/", $images[0]["img"]);
+	$bb2 = explode("/", $images[1]["img"]);
+	if(strcmp($bb[0],"http:")==0||strcmp($bb[0],"https:")==0){$bildesID = "";}else{$bildesID = "http://";}
+	if(strcmp($bb2[0],"http:")==0||strcmp($bb2[0],"https:")==0){$bildesID2 = "";}else{$bildesID2 = "http://";}
+
+	for ($i=0; $i<sizeof($bb)-1; $i++){$bildesID.=$bb[$i]."/";}
+	for ($i=0; $i<sizeof($bb2)-1; $i++){$bildesID2.=$bb2[$i]."/";}
+
+	//dabū lielās bildes
+	$aa = explode("/", $bildesID);
+	$aa2 = explode("/", $bildesID2);
+	for ($i=0; $i<sizeof($aa)-1; $i++){$aaa1.=$aa[$i]."/";if($i==sizeof($aa)-2){$aaa1.="s2000/";};}
+	for ($i=0; $i<sizeof($aa2)-1; $i++){$aaa2.=$aa2[$i]."/";if($i==sizeof($aa2)-2){$aaa2.="s2000/";};}
+
+	//Pirmā bilde
+	echo '<div class="left-half">';
+	if(substr($images[1]["img"], 0, 4) == "http"){
+		//Jāpārbauda arī otra (lai pareizi skaitītu...)
+		if(substr($images[0]["img"], 0, 4) !== "http"){
+			$bildesID = $images[0]["img"];
+		}
+		//TO-DO: Pārbaudīt, vai arī ar tastarūras pogām lietas strādā...
+		echo "<a href='?id=".$images[1]["Id"]."&skatita=".$images[0]["Id"]."'><img class='a' src='".$aaa2."' ></a>";
+	}else{    
+		if(substr($images[0]["img"], 0, 4) !== "http"){
+			$bildesID = $images[0]["img"];
+		}
+		echo "<a href='?id=".$images[1]["Id"]."&skatita=".$images[0]["Id"]."'><img class='a' src='".getImage($images[1]["img"],$accessToken)."'/></a>";
+	}
+	echo "<div style='color:white;padding:10px;margin:10px; display:block;'>";
+	echo "Albums: <a style='color:white;font-weight:bold;' target='_blank' href='http://lielakeda.lv/albums/?cws_album=".$images[1]["albumID"]."&cws_album_title=".$images[1]["album"]."'>".$images[1]["album"]."</a><br/>";
+	if($images[1]["views"]>0){echo "Reitings: ".$images[1]["votes"]/$images[1]["views"]."; ";}else{echo "Reitings: -; ";}
+	echo "Balsis: ".$images[1]["votes"]."; ";
+	if($images[1]["views"]>0){echo "Skatīta: ".$images[1]["views"]." reizes<br/>";}else{echo "Skatīta: -<br/>";}
+
+	if($tags[1][0]!="nav")
+		echo "Atslēgvārdi: ";
+	foreach($tags[1] as $tag)
+		if($tag != "nav")
+			echo "<a style='text-decoration:none;color:white;font-weight:bold;' href='vards.php?v=".$tag."'>".$tag."</a> ";
+		if($tags[1][0]!="nav")
+			echo"<br/>";
+	if(isset($images[1]["exposure"]) && isset($images[1]["exposure"]) && $images[1]["exposure"] != "" && $images[1]["exposure"] < 1 && $images[1]["exposure"] != 0 && $images[1]["exposure"] != 0) {
+		$ashspd = "1/".(round(1 / $images[1]["exposure"]));
+	} else {
+		$ashspd = $images[1]["exposure"];
+	}
+		
+	echo "Uzņemts ar: ".$images[1]["model"]."<br/>";
+	echo "ISO: ".$images[1]["iso"]."; ";
 	echo "Ekspozīcija: ".$ashspd."s<br/>";
-	echo "fokusa attālums: ".$afocallength."mm<br/>";
-	echo "Gads: ".$ayear."<br/>";
-	switch ($amonth) {
-		case 1: $menesis = "janvāris"; break;
-		case 2: $menesis = "februāris"; break;
-		case 3: $menesis = "marts"; break;
-		case 4: $menesis = "aprīlis"; break;
-		case 5: $menesis = "maijs"; break;
-		case 6: $menesis = "jūnijs"; break;
-		case 7: $menesis = "jūlijs"; break;
-		case 8: $menesis = "augusts"; break;
-		case 9: $menesis = "septembris"; break;
-		case 10: $menesis = "oktobris"; break;
-		case 11: $menesis = "novembris"; break;
-		case 12: $menesis = "decembris"; break;
-	}
-	echo "Mēnesis: ".$menesis."<br/>";
-	switch ($aweekday) {
-		case 1: $diena = "pirmdiena"; break;
-		case 2: $diena = "otrdiena"; break;
-		case 3: $diena = "trešdiena"; break;
-		case 4: $diena = "ceturtdiena"; break;
-		case 5: $diena = "piektdiena"; break;
-		case 6: $diena = "sestdiena"; break;
-		case 7: $diena = "svētdiena"; break;
-	}
-	echo "Diena: ".$diena."<br/>";
+	echo "Diafragmas atvērums: F".$images[1]["fstop"]."<br/>";
+	echo "Fokusa attālums: ".$images[1]["focallength"]."mm<br/>";
+	echo diena($images[1]["day"]).", ".$images[1]["year"].". gada ".menesis($images[1]["month"])."<br/>";
 	echo "</div>";
-?>
-</div>
-<script language = "JavaScript">
+	echo '</div>';
 
-document.addEventListener("keydown", keyDownTextField, false);
 
-function keyDownTextField(e) {
-  var keyCode = e.keyCode;
-  switch(keyCode){
-		case 37:
-			window.location.href = "index.php?id=<?php echo $bildesID;?>&skatita=<?php echo $bildesID2;?>";
-			break;
-		case 39:
-			window.location.href = "index.php?id=<?php echo $bildesID2;?>&skatita=<?php echo $bildesID;?>";
-			break;
-	} 
-}
-</script>
-<br style="clear:both;"/>
-<div style="position: fixed; bottom: 0px;  margin: auto auto; width:100%;background-color:lightgrey;text-align:center; opacity:0.85;">
-<a style="color:black; font-weight:bold; text-decoration:none;" href="index.php">Sākums</a> | 
-	<a style="color:black; font-weight:bold; text-decoration:none;" href="topp.php">TOP bildes</a> | 
-	<a style="color:black; font-weight:bold; text-decoration:none;" href="topa.php">TOP albumi</a> | 
-	<a style="color:black; font-weight:bold; text-decoration:none;" href="stat.php">Statistika</a> | 
-	<a style="color:black; font-weight:bold; text-decoration:none;" href="karte.php">Karte</a> | 
-	<a style="color:black; font-weight:bold; text-decoration:none;" href="tags.php">Atslēgvārdi</a>
-</div>
+	//Otrā bilde
+	echo '<div class="right-half">';
+	if(substr($images[0]["img"], 0, 4) == "http"){
+		//Jāpārbauda arī otra (lai pareizi skaitītu...)
+		if(substr($images[1]["img"], 0, 4) !== "http"){
+			$bildesID2 = $images[1]["img"];
+		}
+		echo "<a href='?id=".$images[0]["Id"]."&skatita=".$images[1]["Id"]."'><img class='b' src='".$aaa1."' ></a><br style='clear:both;'/>";
+	}else{
+		if(substr($images[1]["img"], 0, 4) !== "http"){
+			$bildesID2 = $images[1]["img"];
+		}
+		echo "<a href='?id=".$images[0]["Id"]."&skatita=".$images[1]["Id"]."'><img class='b' src='".getImage($images[0]["img"],$accessToken)."'/></a><br style='clear:both;'/>";
+	}
+
+	echo "<div style='color:black;padding:10px;margin:10px; display:block;'>";
+	echo "Albums: <a style='color:black;font-weight:bold;' target='_blank' href='http://lielakeda.lv/albums/?cws_album=".$images[0]["albumID"]."&cws_album_title=".$images[0]["album"]."'>".$images[0]["album"]."</a><br/>";
+	if($images[0]["views"]>0){echo "Reitings: ".$images[0]["votes"]/$images[0]["views"]."; ";}else{echo "Reitings: -; ";}
+	echo "Balsis: ".$images[0]["votes"]."; ";
+	if($images[0]["views"]>0){echo "Skatīta: ".$images[0]["views"]." reizes<br/>";}else{echo "Skatīta: -<br/>";}
+
+	if($tags[0][0]!="nav")
+		echo "Atslēgvārdi: ";
+	foreach($tags[0] as $tag)
+		if($tag != "nav")
+			echo "<a style='text-decoration:none;color:black;font-weight:bold;' href='vards.php?v=".$tag."'>".$tag."</a> ";
+		if($tags[0][0] != "nav")
+			echo"<br/>";
+	if($images[0]["exposure"]<1&&$images[0]["exposure"]!=0&&$images[0]["exposure"]!=""&&isset($images[0]["exposure"])) {$shspd="1/".(round(1/$images[0]["exposure"]));} else {$shspd=$images[0]["exposure"];}
+		
+	echo "Uzņemts ar: ".$images[0]["model"]."<br/>";
+	echo "ISO: ".$images[0]["iso"]."; ";
+	echo "Ekspozīcija: ".$shspd."s<br/>";
+	echo "Diafragmas atvērums: F".$images[0]["fstop"]."<br/>";
+	echo "Fokusa attālums: ".$images[0]["focallength"]."mm<br/>";
+	echo diena($images[0]["day"]).", ".$images[0]["year"].". gada ".menesis($images[0]["month"])."<br/>";
+	echo "</div>";
+
+	echo '</div>';
+	?>
+	</section>
+	</div>
+	<script language = "JavaScript">
+
+	document.addEventListener("keydown", keyDownTextField, false);
+
+	function keyDownTextField(e) {
+	  var keyCode = e.keyCode;
+	  switch(keyCode){
+			case 37:
+				window.location.href = "index.php?id=<?php echo $images[1]['Id'];?>&skatita=<?php echo $images[0]['Id'];?>";
+				break;
+			case 39:
+				window.location.href = "index.php?id=<?php echo $images[0]['Id'];?>&skatita=<?php echo $images[1]['Id'];?>";
+				break;
+		} 
+	}
+	</script>
+	<br style="clear:both;"/>
+	<div style="position: fixed; bottom: 0px;  margin: auto auto; width:100%;background-color:lightgrey;text-align:center; opacity:0.85; display:block;">
+	<a style="color:black; font-weight:bold; text-decoration:none;" href="index.php">Sākums</a> | 
+		<a style="color:black; font-weight:bold; text-decoration:none;" href="topp.php">TOP bildes</a> | 
+		<a style="color:black; font-weight:bold; text-decoration:none;" href="topa.php">TOP albumi</a> | 
+		<a style="color:black; font-weight:bold; text-decoration:none;" href="stat.php">Statistika</a> | 
+		<a style="color:black; font-weight:bold; text-decoration:none;" href="karte.php">Karte</a> | 
+		<a style="color:black; font-weight:bold; text-decoration:none;" href="tags.php">Atslēgvārdi</a>
+	</div>
 </body>
 </html>
+
+<?
+function diena($d){
+	switch ($d) {
+		case 1: return "Pirmdiena"; break;
+		case 2: return "Otrdiena"; break;
+		case 3: return "Trešdiena"; break;
+		case 4: return "Ceturtdiena"; break;
+		case 5: return "Piektdiena"; break;
+		case 6: return "Sestdiena"; break;
+		case 7: return "Svētdiena"; break;
+	}
+}
+function menesis($m){
+	switch ($m) {
+		case 1: return "janvāris"; break;
+		case 2: return "februāris"; break;
+		case 3: return "marts"; break;
+		case 4: return "aprīlis"; break;
+		case 5: return "maijs"; break;
+		case 6: return "jūnijs"; break;
+		case 7: return "jūlijs"; break;
+		case 8: return "augusts"; break;
+		case 9: return "septembris"; break;
+		case 10: return "oktobris"; break;
+		case 11: return "novembris"; break;
+		case 12: return "decembris"; break;
+	}
+}

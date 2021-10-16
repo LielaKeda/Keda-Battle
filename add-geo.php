@@ -1,49 +1,8 @@
 <?php
 header('Content-Type: text/html; charset=UTF-8');
-//SQL pieslēgšanās informācija
-$db_server = "localhost";
-$db_user = "baumuin_bauma";
-$db_password = "{GIwlpQ<?3>g";
-$db_database = "baumuin_battle";
-
-//pieslēdzamies SQL serverim
-$connection = mysqli_connect($db_server, $db_user, $db_password, $db_database);
-mysqli_set_charset($connection, "utf8");
+include('includes/init_sql.php');
+include "functions.php";
 session_start();
-require_once 'get/vendor/autoload.php';
-
-$client = new Google_Client();
-$client->setAuthConfig('get/client_credentials.json');
-$client->setAccessType ("offline");
-$client->setApprovalPrompt ("force");
-$client->setIncludeGrantedScopes(true);
-$client->addScope("https://www.googleapis.com/auth/photoslibrary.readonly");
-
-$accessFile = 'get/accessToken.json';
-$refreshFile = 'get/refreshToken.json';
-
-if (file_exists($accessFile)) {
-	$accessToken = json_decode(file_get_contents($accessFile), true);
-	if(isset($accessToken["access_token"]))
-		$accessToken = $accessToken["access_token"];
-	// echo $accessToken;
-	$client->setAccessToken($accessToken);
-}
-if ($client->isAccessTokenExpired() && file_exists($refreshFile)) {
-	$refreshToken = json_decode(file_get_contents($refreshFile), true);
-	$client->fetchAccessTokenWithRefreshToken($refreshToken);
-	
-	file_put_contents($accessFile, json_encode($client->getAccessToken()));
-	file_put_contents($refreshFile, json_encode($client->getRefreshToken()));
-}else{
-	$authUrl = $client->createAuthUrl();
-	echo $authUrl, "\n";
-	// $code = rtrim(fgets(STDIN));
-	$client->authenticate($code);
-	
-	file_put_contents($accessFile, json_encode($client->getAccessToken()));
-	file_put_contents($refreshFile, json_encode($client->getRefreshToken()));
-}
 
 //saglabāsim datubāzē
 if (isset($_POST['submit'])){
@@ -241,11 +200,11 @@ if (isset($_POST['submit'])){
             
             echo "<tr>";
             echo "<td style='background-color: #".$color."' >".$album."</td><td>";
-            if(substr($img, 0, 4) == "http"){
-                echo "<img style='height:100px;' src='".$img."' />";
-            }else{
-                echo "<img style='height:100px;' onload='(function(){var imgElement = this; var jsonURL=\"https://photoslibrary.googleapis.com/v1/mediaItems/".$img."?access_token=".$accessToken."\"; $.getJSON(jsonURL, function(data) { var imgURL = data.baseUrl+\"=w2000\"; imgElement.src=imgURL; }); }).call(this)' src='includes/bigLoader.gif'/>";
+			$src = $img;
+            if(substr($img, 0, 4) !== "http"){
+                $src = getImage($img, $accessToken);
             }
+            echo "<img style='height:100px;' src='".$src."' />";
             echo "<input type='hidden' name='img-".$Id."' id='img-".$Id."' value='".$img."'>";
             echo "<input type='hidden' name='album-".$Id."' id='album-".$Id."' value='".$album."'>";
             echo "</td>";
