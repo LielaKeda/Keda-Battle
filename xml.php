@@ -2,6 +2,7 @@
 error_reporting(0); 
 header("Content-Type: text/xml; charset=utf-8");
 include "includes/init_sql.php";
+include "functions.php";
 
 //Dabū lapu un periodu
 $lapa = $_GET['lapa'];
@@ -19,40 +20,34 @@ $xml_output .= "<entries>\n";
 //			vai		http://lielakeda.lv/battle/xml.php?lapa=sakums&id=bildesID&skatita=skatitasBildesID
 if ($lapa == 'sakums'){
 	//Ja ir balsojums, pievieno balsi
-	if(isset($_GET['id'])&&strlen($_GET['id'])>30&&isset($_GET['skatita'])&&strlen($_GET['skatita'])>30){
+	if(isset($_GET['id']) && isset($_GET['skatita'])){
 		$bildesID = $_GET['id'];
 		$skatita = $_GET['skatita'];
-		//dabū bildi, par kuru balsots
-		$balsiojumi1 = mysqli_query($connection, "SELECT * FROM ratings where img LIKE '%$bildesID%'");
-		$r1=mysqli_fetch_array($balsiojumi1);
-		//palielina bildes balsis un skatījumus
-		$b_balsis=$r1["votes"];
-		$b_skatijumi=$r1["views"];
-			$b_balsis++;
-			$b_skatijumi++;
-			$result = mysqli_query($connection, "update ratings set votes = '$b_balsis',  views = '$b_skatijumi' where img LIKE '%$bildesID%'");
-		//dabū otru bildi
-		$balsiojumi1 = mysqli_query($connection, "SELECT * FROM ratings where img LIKE '%$skatita%'");
-		$r1=mysqli_fetch_array($balsiojumi1);
-		//palielina bildes skatījumus
-		$s_skatijumi=$r1["views"];
-			$s_skatijumi++;
-			$result = mysqli_query($connection, "update ratings set views = '$s_skatijumi' where img LIKE '%$skatita%'");
+
+		//bilde, par kuru balsots
+		$result = mysqli_query($connection, "update ratings set votes = IFNULL(votes, 0) + 1,  views = IFNULL(views, 0) + 1 where Id = $bildesID");
+	
+		//otra bilde
+		$result = mysqli_query($connection, "update ratings set views = IFNULL(views, 0) + 1 where Id = $skatita");
 	}
 	//Dabū divas bildes
 	$query = mysqli_query($connection, "select * from ratings ORDER BY RAND() LIMIT 2");
 	$rrr=mysqli_fetch_array($query);
-		$random_pic=$rrr["img"];
-		$balsis=$rrr["votes"];
-		$skatijumi=$rrr["views"];
-		if($skatijumi<1)$skatijumi=NULL;
-		$albumID=$rrr["album"];
+	$random_Id	= $rrr["Id"];
+	$random_pic	= $rrr["img"];
+	$albumID 	= $rrr["album"];
+	$balsis		= $rrr["votes"];
+	$skatijumi	= $rrr["views"];
+	if($skatijumi<1)
+		$skatijumi=NULL;
 	$rrr=mysqli_fetch_array($query);
-		$arandom_pic=$rrr["img"];
-		$abalsis=$rrr["votes"];
-		$askatijumi=$rrr["views"];
-		if($askatijumi<1)$askatijumi=NULL;
-		$aalbumID=$rrr["album"];
+	$arandom_Id  = $rrr["Id"];
+	$arandom_pic = $rrr["img"];
+	$aalbumID	 = $rrr["album"];
+	$abalsis	 = $rrr["votes"];
+	$askatijumi	 = $rrr["views"];
+	if($askatijumi<1)
+		$askatijumi=NULL;
 	//izskaitļo bildes ID
 	$bb = explode("/", $random_pic);
 	$bb2 = explode("/", $arandom_pic);
@@ -63,20 +58,28 @@ if ($lapa == 'sakums'){
 	//dabū lielās bildes
 	$aa = explode("/", $bildesID);
 	$aa2 = explode("/", $bildesID2);
-	for ($i=0; $i<sizeof($aa)-1; $i++){$aaa1.=$aa[$i]."/";if($i==sizeof($aa)-2){$aaa1.="s640/";};}
-	for ($i=0; $i<sizeof($aa2)-1; $i++){$aaa2.=$aa2[$i]."/";if($i==sizeof($aa2)-2){$aaa2.="s640/";};}
+	for ($i=0; $i<sizeof($aa)-1; $i++){$aaa1.=$aa[$i]."/";if($i==sizeof($aa)-2){$aaa1.="s2000/";};}
+	for ($i=0; $i<sizeof($aa2)-1; $i++){$aaa2.=$aa2[$i]."/";if($i==sizeof($aa2)-2){$aaa2.="s2000/";};}
+	
+	if(substr($random_pic, 0, 4) !== "http"){
+		$aaa1 = getImage($random_pic, $accessToken);
+	}
+	if(substr($arandom_pic, 0, 4) !== "http"){
+		$aaa2 = getImage($arandom_pic, $accessToken);
+	}
+	
 	//Izveido XML
 	$xml_output .= "\t<entry>\n";
-	$xml_output .= "\t\t<id>" . $bildesID . "</id>\n";
-	$xml_output .= "\t\t<otra>" . $bildesID2 . "</otra>\n";
+	$xml_output .= "\t\t<id>" . $random_Id . "</id>\n";
+	$xml_output .= "\t\t<otra>" . $arandom_Id . "</otra>\n";
 	$xml_output .= "\t\t<src>" . $aaa1 . "</src>\n";
 	$xml_output .= "\t\t<balsis>" . $balsis . "</balsis>\n";
 	$xml_output .= "\t\t<reitings>" . ($balsis > 0 ? round($balsis/$skatijumi,2) : 0) . "</reitings>\n";
 	$xml_output .= "\t\t<albums>" . $albumID . "</albums>\n";
 	$xml_output .= "\t</entry>\n";
 	$xml_output .= "\t<entry>\n";
-	$xml_output .= "\t\t<id>" . $bildesID2 . "</id>\n";
-	$xml_output .= "\t\t<otra>" . $bildesID . "</otra>\n";
+	$xml_output .= "\t\t<id>" . $arandom_Id . "</id>\n";
+	$xml_output .= "\t\t<otra>" . $random_Id . "</otra>\n";
 	$xml_output .= "\t\t<src>" . $aaa2 . "</src>\n";
 	$xml_output .= "\t\t<balsis>" . $abalsis . "</balsis>\n";
 	$xml_output .= "\t\t<reitings>" . ($abalsis > 0 ? round($abalsis/$askatijumi,2) : 0) . "</reitings>\n";
